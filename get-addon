@@ -1,0 +1,222 @@
+#!/bin/bash
+# get-addon 1.0 for Omeka
+# Copyright 2009, John Flatness
+
+# --------- #
+# Constants #
+# --------- #
+scriptName=`basename $0`
+scriptVersion="1.0"
+svnUrl='https://addons.omeka.org/svn'
+wwwUrl='http://omeka.org/files'
+
+www=false
+git=false
+pretend=false
+
+# --------- #
+# Functions #
+# --------- #
+
+# Print short usage information, and an error, if specified in $1
+usage() {
+    if [[ -n "$1" ]]
+    then
+        echo -e "Error: $1\n"
+    fi
+    cat <<EOF
+$scriptName $scriptVersion for Omeka
+Usage: $scriptName <addon name>
+       $scriptName <addon name> -g
+       $scriptName <addon name> -t <tag name>
+       $scriptName <addon name> -b <branch name>
+       $scriptName <addon name> -v <version number>
+       $scriptName -h for help
+EOF
+}
+
+# Print long usage information/help.
+# Includes the text of usage()
+longHelp() {
+    usage
+    cat <<EOF
+Retrieves an Omeka addon (a plugin or theme) from the Omeka addons repository orthe Omeka web site.
+
+$scriptName must be run from a plugins or themes directory inside an Omeka
+installation.  $scriptName will attempt to retrieve plugins when run from
+within the plugins directory, and themes from within the themes directory.
+
+With no additional options, $scriptName will attempt to retrieve the subversion 
+trunk for the addon.  Options (specified below) allow other versions or formats 
+to be selected.
+
+Options:
+    -t <tag name>
+        Selects a specific subversion tag to check out.
+    -b <branch name>
+        Selects a specific subversion branch to check out.
+    -v <version number>
+        Selects a specific zipped release by version number.
+    -g
+        Use git to check out the addon. Cannot be used with any of the options
+        that select a specific version.
+    -p
+        Pretend.  Outputs the commands that would be run, but performs no 
+        operations.
+    -h
+        Displays this help text.
+EOF
+    exit 0
+}
+
+# Throws an appropriate error when using exclusive options together.
+exclusive_options() {
+    usage "The -b, -t, and -v options are mutually exclusive."
+    exit 1
+}
+
+# ----------- #
+# Script body #
+# ----------- #
+
+# Manually set the addon name as the first argument
+addon=$1
+
+# -h is the only valid argument to have in place of the addon name
+if [[ "$addon" = "-h" ]]
+then
+    longHelp
+fi
+
+# Make getopts skip the first argument
+OPTIND=2
+
+# Parse options with getopts
+while getopts ":hpgb:t:v:" arg
+do
+    case "$arg" in
+        h)
+            longHelp
+            ;;
+        b)
+            if [[ -z "$version" ]]
+            then
+                version="branches/$OPTARG"
+            else
+                exclusive_options
+            fi
+            ;;
+        t)
+            if [[ -z "$version" ]]
+            then
+                version="tags/$OPTARG"
+            else
+                exclusive_options
+            fi
+            ;;
+        v)
+            if [[ -z "$version" ]]
+            then
+                version="$OPTARG"
+                www=true
+            else
+                exclusive_options
+            fi
+            ;;
+        g)
+            git=true
+            ;;
+        p)
+            pretend=true
+            ;;
+        :)
+            usage "Option \"$OPTARG\" requires an argument."
+            exit 1
+            ;;
+        *)
+            usage "Unknown option \"$OPTARG\"."
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z "$addon" ]]
+then
+    usage "Addon not specified."
+    exit 1
+fi
+
+if [[ -z "$version" ]]
+then
+    version="trunk"
+else
+    if $git
+    then
+        usage "The -g option cannot be used with any of the version options."
+        exit 1
+    fi
+fi
+
+# Ensure we are running from an Omeka plugins or themes directory
+if [ -f ../paths.php ]
+then
+    case $(basename $PWD) in
+        'plugins')
+            type="plugins"
+            ;;
+        'themes')
+            type="themes"
+            ;;
+        *)
+            usage "$scriptName must be run from an Omeka plugins or themes directory."
+            exit 1
+            ;;
+    esac
+else
+    usage "$scriptName must be run from an Omeka plugins or themes directory."
+    exit 1
+fi
+
+if $www
+then
+    # Set up for downloading and unzipping from omeka.org
+    typeSingle=$(echo $type | sed 's/s$//')
+    addonLower=$(echo $addon | tr '[:upper:]' '[:lower:]')
+    url="$wwwUrl/$type/omeka-$addonLower-$typeSingle-$version.zip"
+    zipName=$(basename $url)
+    
+    getCommand="wget -N $url"
+    unpackCommand="unzip $zipName"
+    cleanupCommand="rm $zipName"
+else
+    # Set up commands for svn or git checkout/clone
+    if $git
+    then
+        url="$svnUrl/$type/$addon"
+        getCommand="git svn clone --stdlayout $url $addon"
+    else
+        url="$svnUrl/$type/$addon/$version"
+        getCommand="svn co $url $addon"
+    fi
+fi
+
+# Disallow getting a addon if a directory already exists for it
+if [[ -e "$addon" ]] && ! $pretend
+then
+    echo "Error: Addon \"$addon\" already exists."
+    exit 1
+fi
+
+# Actually get the addon (or print the commands for pretend)
+for command in "$getCommand" "$unpackCommand" "$cleanupCommand"
+do
+    if [[ -n "$command" ]]
+    then
+        if $pretend
+        then
+            echo "$command"
+        else
+            $command
+        fi
+    fi
+done

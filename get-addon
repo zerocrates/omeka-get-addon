@@ -216,7 +216,11 @@ do
         then
             echo "$command"
         else
-            $command
+            if ! $command
+            then
+                echo "Error: Command failed"
+                exit 1;
+            fi
         fi
     fi
 done

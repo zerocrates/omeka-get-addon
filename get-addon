@@ -180,23 +180,19 @@ fi
 if $www
 then
     # Set up for downloading and unzipping from omeka.org
-    typeSingle=$(echo $type | sed 's/s$//')
-    addonLower=$(echo $addon | tr '[:upper:]' '[:lower:]')
-    url="$wwwUrl/$type/omeka-$addonLower-$typeSingle-$version.zip"
+    url="$wwwUrl/$type/$addon-$version.zip"
     zipName=$(basename $url)
     
-    getCommand="wget -N $url"
-    unpackCommand="unzip $zipName"
-    cleanupCommand="rm $zipName"
+    commands=( "wget -N $url" "unzip $zipName" "rm $zipName" )
 else
     # Set up commands for svn or git checkout/clone
     if $git
     then
         url="$svnUrl/$type/$addon"
-        getCommand="git svn clone --stdlayout $url $addon"
+        commands=( "git svn clone --stdlayout $url $addon" )
     else
         url="$svnUrl/$type/$addon/$version"
-        getCommand="svn co $url $addon"
+        commands=( "svn checkout $url $addon" )
     fi
 fi
 
@@ -208,7 +204,7 @@ then
 fi
 
 # Actually get the addon (or print the commands for pretend)
-for command in "$getCommand" "$unpackCommand" "$cleanupCommand"
+for command in "${commands[@]}"
 do
     if [[ -n "$command" ]]
     then
@@ -218,9 +214,11 @@ do
         else
             if ! $command
             then
-                echo "Error: Command failed"
+                echo "Error: Command \"$command\" failed."
                 exit 1;
             fi
         fi
     fi
 done
+
+echo -e "\nAddon \"$addon\" downloaded successfully."

@@ -1,18 +1,27 @@
 #!/bin/bash
-# get-addon 1.0 for Omeka
-# Copyright 2009, John Flatness
+# get-addon 1.1 for Omeka
+# Copyright 2009-2011, John Flatness
 
 # --------- #
 # Constants #
 # --------- #
-scriptName=`basename $0`
-scriptVersion="1.0"
+scriptName="get-addon"
+scriptVersion="1.1"
 svnUrl='https://addons.omeka.org/svn'
 wwwUrl='http://omeka.org/files'
 
 www=false
 git=false
 pretend=false
+
+# Utility paths. If you need to specify a specific version, or you do
+# not have one installed in your $PATH, you can replace these with the
+# actual path to the binary. 
+svnBin="svn"
+wgetBin="wget"
+gitBin="git"
+unzipBin="unzip"
+
 
 # --------- #
 # Functions #
@@ -25,13 +34,9 @@ usage() {
         echo -e "Error: $1\n"
     fi
     cat <<EOF
-$scriptName $scriptVersion for Omeka
-Usage: $scriptName <addon name>
-       $scriptName <addon name> -g
-       $scriptName <addon name> -t <tag name>
-       $scriptName <addon name> -b <branch name>
-       $scriptName <addon name> -v <version number>
-       $scriptName -h for help
+$scriptName $scriptVersion (for Omeka)
+Usage: $scriptName [options] <addon name>
+       $scriptName -h for help and options
 EOF
 }
 
@@ -40,9 +45,11 @@ EOF
 longHelp() {
     usage
     cat <<EOF
-Retrieves an Omeka addon (a plugin or theme) from the Omeka addons repository orthe Omeka web site.
 
-$scriptName must be run from a plugins or themes directory inside an Omeka
+Retrieves an Omeka addon (a plugin or theme) from the Omeka addons
+repository.
+
+get-addon must be run from a plugins or themes directory inside an Omeka
 installation.  $scriptName will attempt to retrieve plugins when run from
 within the plugins directory, and themes from within the themes directory.
 
@@ -71,7 +78,7 @@ EOF
 
 # Throws an appropriate error when using exclusive options together.
 exclusive_options() {
-    usage "The -b, -t, and -v options are mutually exclusive."
+    usage "The branch, tag, and version options cannot be used together."
     exit 1
 }
 
@@ -79,22 +86,10 @@ exclusive_options() {
 # Script body #
 # ----------- #
 
-# Manually set the addon name as the first argument
-addon=$1
-
-# -h is the only valid argument to have in place of the addon name
-if [[ "$addon" = "-h" ]]
-then
-    longHelp
-fi
-
-# Make getopts skip the first argument
-OPTIND=2
-
 # Parse options with getopts
-while getopts ":hpgb:t:v:" arg
+while getopts ":hpgb:t:v:" opt
 do
-    case "$arg" in
+    case "$opt" in
         h)
             longHelp
             ;;
@@ -139,6 +134,10 @@ do
             ;;
     esac
 done
+shift $(($OPTIND-1))
+
+# The only argument after the options should be the addon name
+addon=$1
 
 if [[ -z "$addon" ]]
 then
@@ -183,16 +182,16 @@ then
     url="$wwwUrl/$type/$addon-$version.zip"
     zipName=$(basename $url)
     
-    commands=( "wget -N $url" "unzip $zipName" "rm $zipName" )
+    commands=( "$wgetBin -N $url" "$unzipBin $zipName" "rm $zipName" )
 else
     # Set up commands for svn or git checkout/clone
     if $git
     then
         url="$svnUrl/$type/$addon"
-        commands=( "git svn clone --stdlayout $url $addon" )
+        commands=( "$gitBin svn clone --stdlayout $url $addon" )
     else
         url="$svnUrl/$type/$addon/$version"
-        commands=( "svn checkout $url $addon" )
+        commands=( "$svnBin checkout $url $addon" )
     fi
 fi
 

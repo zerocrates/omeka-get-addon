@@ -1,23 +1,23 @@
 #!/bin/bash
-# get-addon 1.1 for Omeka
+# get-addon 1.2 for Omeka
 # Copyright 2009-2011, John Flatness
 
 # --------- #
 # Constants #
 # --------- #
 scriptName="get-addon"
-scriptVersion="1.1"
-svnUrl='https://addons.omeka.org/svn'
+scriptVersion="1.2"
+gitRoUrl='git://github.com/omeka'
+gitRwUrl='git@github.com:omeka'
 wwwUrl='http://omeka.org/files'
 
 www=false
-git=false
+gitRw=false
 pretend=false
 
 # Utility paths. If you need to specify a specific version, or you do
 # not have one installed in your $PATH, you can replace these with the
 # actual path to the binary. 
-svnBin="svn"
 wgetBin="wget"
 gitBin="git"
 unzipBin="unzip"
@@ -53,20 +53,15 @@ get-addon must be run from a plugins or themes directory inside an Omeka
 installation.  $scriptName will attempt to retrieve plugins when run from
 within the plugins directory, and themes from within the themes directory.
 
-With no additional options, $scriptName will attempt to retrieve the subversion 
-trunk for the addon.  Options (specified below) allow other versions or formats 
-to be selected.
+With no additional options, $scriptName will checkout the addon with Git.
+Options (specified below) allow other versions or formats to be selected.
 
 Options:
-    -t <tag name>
-        Selects a specific subversion tag to check out.
-    -b <branch name>
-        Selects a specific subversion branch to check out.
+    -w
+        Read/write clone. Clones the addon from a URL that will allow push as
+        well as pull.
     -v <version number>
         Selects a specific zipped release by version number.
-    -g
-        Use git to check out the addon. Cannot be used with any of the options
-        that select a specific version.
     -p
         Pretend.  Outputs the commands that would be run, but performs no 
         operations.
@@ -76,9 +71,10 @@ EOF
     exit 0
 }
 
-# Throws an appropriate error when using exclusive options together.
-exclusive_options() {
-    usage "The branch, tag, and version options cannot be used together."
+
+# Throws an appropriate error when using exlusive options together.
+exclusiveOptions() {
+    usage "The -w and -v options cannot be used together."
     exit 1
 }
 
@@ -87,39 +83,23 @@ exclusive_options() {
 # ----------- #
 
 # Parse options with getopts
-while getopts ":hpgb:t:v:" opt
+while getopts ":hpwv:" opt
 do
     case "$opt" in
         h)
             longHelp
             ;;
-        b)
+        w)
             if [[ -z "$version" ]]
             then
-                version="branches/$OPTARG"
-            else
-                exclusive_options
-            fi
-            ;;
-        t)
-            if [[ -z "$version" ]]
-            then
-                version="tags/$OPTARG"
+                gitRw=true
             else
                 exclusive_options
             fi
             ;;
         v)
-            if [[ -z "$version" ]]
-            then
-                version="$OPTARG"
-                www=true
-            else
-                exclusive_options
-            fi
-            ;;
-        g)
-            git=true
+            version="$OPTARG"
+            www=true
             ;;
         p)
             pretend=true
@@ -145,26 +125,15 @@ then
     exit 1
 fi
 
-if [[ -z "$version" ]]
-then
-    version="trunk"
-else
-    if $git
-    then
-        usage "The -g option cannot be used with any of the version options."
-        exit 1
-    fi
-fi
-
 # Ensure we are running from an Omeka plugins or themes directory
 if [ -f ../paths.php ]
 then
     case $(basename $PWD) in
         'plugins')
-            type="plugins"
+            type="plugin"
             ;;
         'themes')
-            type="themes"
+            type="theme"
             ;;
         *)
             usage "$scriptName must be run from an Omeka plugins or themes directory."
@@ -179,20 +148,19 @@ fi
 if $www
 then
     # Set up for downloading and unzipping from omeka.org
-    url="$wwwUrl/$type/$addon-$version.zip"
+    url="$wwwUrl/{$type}s/$addon-$version.zip"
     zipName=$(basename $url)
     
     commands=( "$wgetBin -N $url" "$unzipBin $zipName" "rm $zipName" )
 else
-    # Set up commands for svn or git checkout/clone
-    if $git
+    # Set up for git clone
+    if $gitRw
     then
-        url="$svnUrl/$type/$addon"
-        commands=( "$gitBin svn clone --stdlayout $url $addon" )
+        url="$gitRwUrl/$type-$addon.git"
     else
-        url="$svnUrl/$type/$addon/$version"
-        commands=( "$svnBin checkout $url $addon" )
+        url="$gitRoUrl/$type-$addon.git"
     fi
+    commands=( "$gitBin clone $url $addon" )
 fi
 
 # Disallow getting a addon if a directory already exists for it

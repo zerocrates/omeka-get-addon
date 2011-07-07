@@ -16,8 +16,7 @@ requirements of at least one fetch method for get-addon to do anything useful.
 ### Fetch Methods
 
 * Zip download from omeka.org (requires wget and unzip)
-* Subversion checkout (requires Subversion)
-* Git-SVN clone (requires git with Subversion support)
+* Git clone (requires git)
 
 ## Usage
 
@@ -32,35 +31,31 @@ UpperCamelCased, while a theme name should be written lowercase-and-hyphenated.
 
 ### Options
 
-*   `-t <tag name>`
-    *   Check out a specific Subversion tag.
-*   `-b <branch name>`
-    *   Check out a specific Subversion branch.
+*   `-w`
+    *   Read/write clone. Clones the addon from a URL that will allow push as
+        well as pull.
 *   `-v <version number>`
     *   Download an official zipped release.
-*   `-g`
-    *   Use git-svn to clone the addon's repository.
 *   `-p`
     *   Pretend.  Print the commands that would be run, but perform no actual
         operations.
 *   `-h`
-    *   Help. Displays basically this information about usage and options
+    *   Help. Displays basically this information about usage and options.
 
 get-addon detects what kind of addon you are trying to install by checking what
 directory you run it from.  In the plugins directory, get-addon looks for
 plugins, in the themes directory, get-addon looks for themes.
 
-By default, with no options specified, get-addon will check out the Subversion trunk of the addon you specified.
+By default, with no options specified, get-addon will check out the addon you specified from a read-only Git URL.
 
 ## Example
 
 Getting the ExhibitBuilder plugin (you must be in your Omeka plugins dir):
 
-* Checkout SVN trunk: `get-addon ExhibitBuilder`
-* Checkout version 1.3-2.1: `get-addon -t 1.3-2.1 ExhibitBuilder`
+* Checkout from Git (read-only): `get-addon ExhibitBuilder`
+* Checkout from Git (read-write): `get-addon -w ExhibitBuilder`
 * Download zip of 1.3-2.1: `get-addon -v 1.3-2.1 ExhibitBuilder`
-* Create local git-svn repo: `get-addon -g ExhibitBuilder`
 
 ## Caveats
 
-get-addon only works for addons that are hosted at [omeka.org].
+get-addon only works for addons that are hosted at [github.com/omeka], or are available for download from [omeka.org].
